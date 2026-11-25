@@ -4,6 +4,12 @@ variable "enable_aws_resources" {
   default     = false
 }
 
+variable "enable_app_host" {
+  description = "Set true to add a single EC2 host for the containerized demo."
+  type        = bool
+  default     = false
+}
+
 variable "aws_region" {
   description = "AWS region for the optional infrastructure example."
   type        = string
@@ -37,6 +43,28 @@ variable "db_multi_az" {
   description = "Enable RDS Multi-AZ for an HA demonstration; this can materially increase cost."
   type        = bool
   default     = false
+}
+
+variable "app_repo_url" {
+  description = "Public HTTPS GitHub URL that the EC2 host clones at first boot."
+  type        = string
+  default     = "https://github.com/Sandeep-omm/cloudops-control-center.git"
+
+  validation {
+    condition     = can(regex("^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\\.git$", var.app_repo_url))
+    error_message = "app_repo_url must be an HTTPS GitHub repository URL ending in .git."
+  }
+}
+
+variable "app_repo_branch" {
+  description = "Branch containing the application and AWS Compose file."
+  type        = string
+  default     = "master"
+
+  validation {
+    condition     = can(regex("^[A-Za-z0-9._/-]+$", var.app_repo_branch))
+    error_message = "app_repo_branch may contain only letters, numbers, dots, underscores, slashes, and hyphens."
+  }
 }
 
 variable "vpc_cidr" {

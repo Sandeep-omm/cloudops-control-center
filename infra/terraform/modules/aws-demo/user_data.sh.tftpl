@@ -1,0 +1,64 @@
+#!/bin/bash
+set -Eeuo pipefail
+exec > >(tee -a /var/log/cloud-init-output.log) 2>&1
+
+AWS_REGION=${aws_region}
+APP_REPO_URL=${app_repo_url}
+APP_REPO_BRANCH=${app_repo_branch}
+DATABASE_PARAM=${database_param}
+DATABASE_ADMIN_PARAM=${database_admin_param}
+APP_DATABASE_PASSWORD_PARAM=${app_database_password_param}
+GRAFANA_PARAM=${grafana_param}
+
+dnf install -y docker git curl unzip openssl
+systemctl enable --now docker
+
+mkdir -p /usr/local/lib/docker/cli-plugins
+curl --fail --location --silent --show-error \
+  https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  --output /usr/local/lib/docker/cli-plugins/docker-compose
+chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+curl --fail --location --silent --show-error \
+  https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip \
+  --output /tmp/awscliv2.zip
+unzip -q /tmp/awscliv2.zip -d /tmp
+/tmp/aws/install --update
+
+install -d -m 0750 /opt/cloudops-control-center
+git clone --depth 1 --branch "$APP_REPO_BRANCH" "$APP_REPO_URL" /opt/cloudops-control-center
+
+get_secure_parameter() {
+  parameter_name="$1"
+  for attempt in $(seq 1 12); do
+    if parameter_value="$(aws ssm get-parameter \
+      --name "$parameter_name" \
+      --with-decryption \
+      --query Parameter.Value \
+      --output text \
+      --region "$AWS_REGION" 2>/dev/null)"; then
+      printf '%s' "$parameter_value"
+      return 0
+    fi
+    sleep 10
+  done
+  echo "Unable to read required encrypted parameter after retries." >&2
+  return 1
+}
+
+DATABASE_URL="$(get_secure_parameter "$DATABASE_PARAM")"
+DATABASE_ADMIN_URL="$(get_secure_parameter "$DATABASE_ADMIN_PARAM")"
+APP_DATABASE_PASSWORD="$(get_secure_parameter "$APP_DATABASE_PASSWORD_PARAM")"
+GRAFANA_PASSWORD="$(get_secure_parameter "$GRAFANA_PARAM")"
+printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > /opt/cloudops-control-center/.env.app
+printf 'DATABASE_ADMIN_URL=%s\nAPP_DB_PASSWORD=%s\n' \
+  "$DATABASE_ADMIN_URL" "$APP_DATABASE_PASSWORD" > /opt/cloudops-control-center/.env.bootstrap
+printf 'GF_SECURITY_ADMIN_PASSWORD=%s\n' "$GRAFANA_PASSWORD" > /opt/cloudops-control-center/.env
+chmod 0600 /opt/cloudops-control-center/.env.app \
+  /opt/cloudops-control-center/.env.bootstrap \
+  /opt/cloudops-control-center/.env
+chown -R root:root /opt/cloudops-control-center
+
+cd /opt/cloudops-control-center
+export GF_SECURITY_ADMIN_PASSWORD="$GRAFANA_PASSWORD"
+docker compose --file compose.aws.yaml up --detach --build

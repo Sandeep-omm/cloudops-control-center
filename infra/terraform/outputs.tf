@@ -19,6 +19,21 @@ output "uploads_bucket" {
 }
 
 output "application_instance_profile" {
-  description = "Least-privilege EC2 instance profile for a future app host."
+  description = "EC2 app instance profile with scoped S3, SSM, and encrypted parameter access."
   value       = try(module.aws_demo[0].application_instance_profile, null)
+}
+
+output "app_instance_id" {
+  description = "SSM-managed EC2 host ID (null unless app hosting is enabled)."
+  value       = try(module.aws_demo[0].app_instance_id, null)
+}
+
+output "app_instance_public_ip" {
+  description = "Public IP for outbound-only EC2 connectivity (null unless app hosting is enabled)."
+  value       = try(module.aws_demo[0].app_instance_public_ip, null)
+}
+
+output "grafana_password_parameter" {
+  description = "SSM parameter name for the encrypted Grafana login password."
+  value       = try(module.aws_demo[0].grafana_password_parameter, null)
 }

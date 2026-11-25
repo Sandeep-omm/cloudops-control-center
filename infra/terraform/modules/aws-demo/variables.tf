@@ -21,3 +21,15 @@ variable "db_multi_az" {
 variable "vpc_cidr" {
   type = string
 }
+
+variable "enable_app_host" {
+  type = bool
+}
+
+variable "app_repo_url" {
+  type = string
+}
+
+variable "app_repo_branch" {
+  type = string
+}

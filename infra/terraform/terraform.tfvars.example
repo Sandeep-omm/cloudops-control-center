@@ -1,5 +1,8 @@
 # This file is intentionally disabled. Copy to terraform.tfvars only for a reviewed plan.
 enable_aws_resources = false
+enable_app_host       = false
 aws_region            = "us-east-1"
 project_name          = "cloudops-demo"
 db_multi_az           = false
+app_repo_url          = "https://github.com/Sandeep-omm/cloudops-control-center.git"
+app_repo_branch       = "master"

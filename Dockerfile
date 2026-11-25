@@ -6,6 +6,7 @@ COPY pyproject.toml ./
 RUN pip install --no-cache-dir .
 COPY app ./app
 COPY worker ./worker
+COPY scripts ./scripts
 COPY migrations ./migrations
 COPY alembic.ini ./alembic.ini
 RUN useradd --create-home --uid 10001 appuser && mkdir -p /data && chown -R appuser:appuser /app /data

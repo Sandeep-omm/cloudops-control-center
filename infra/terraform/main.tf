@@ -8,4 +8,7 @@ module "aws_demo" {
   db_instance_class = var.db_instance_class
   db_multi_az       = var.db_multi_az
   vpc_cidr          = var.vpc_cidr
+  enable_app_host   = var.enable_app_host
+  app_repo_url      = var.app_repo_url
+  app_repo_branch   = var.app_repo_branch
 }

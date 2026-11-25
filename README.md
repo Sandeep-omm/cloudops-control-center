@@ -1,6 +1,6 @@
 # CloudOps Control Center
 
-A local-first data processing platform that demonstrates an API, PostgreSQL-backed worker queue, containerized services, CI, and application monitoring. The full demo runs on your computer; an AWS deployment design is planned as a separate learning layer.
+A data processing platform that demonstrates an API, PostgreSQL-backed worker queue, containerized services, CI, and application monitoring. Run the full stack locally with Docker Compose, or optionally deploy a single EC2 demo host inside the Terraform-managed AWS VPC. The AWS database remains private and the demo host is accessed through Systems Manager port forwarding.
 
 ## Start locally
 
@@ -36,6 +36,8 @@ This keeps the database and Grafana volumes. To reset the demo database and moni
 | Worker | Claims and processes queued CSV jobs | Metrics 8001 (container network only) |
 | Prometheus | Scrapes API and worker metrics | 9091 |
 | Grafana | Provisioned operations dashboard | 3001 |
+
+The optional AWS Compose stack is in `compose.aws.yaml`. It connects to the private RDS instance, stores the database URL as an SSM Parameter Store `SecureString`, and binds the app and monitoring ports to EC2 loopback. It does not expose inbound ports to the internet.
 
 The worker claims jobs with PostgreSQL row locks (`SKIP LOCKED`), so two workers can safely share the queue. Uploads are size-limited and named with generated IDs; original user paths are never used for storage paths. The API and worker run as a non-root container user.
 
@@ -89,7 +91,7 @@ docs/                Architecture, security, and operations notes
 - [x] Container health checks and non-root application container
 - [x] CI static checks and image build
 - [x] Automated test suite and database migrations
-- [x] Terraform AWS example with disabled-by-default resources and a cost guide
+- [x] Terraform AWS VPC, private RDS, S3, IAM, and optional SSM-managed EC2 app host
 - [ ] Optional Kubernetes manifests and local cluster walkthrough
 - [ ] Screenshots and short project demo recording
 

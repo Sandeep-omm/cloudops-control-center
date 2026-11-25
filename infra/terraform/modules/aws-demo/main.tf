@@ -2,6 +2,29 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+data "aws_ami" "al2023" {
+  count       = var.enable_app_host ? 1 : 0
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-2023.*-x86_64"]
+  }
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+  filter {
+    name   = "root-device-type"
+    values = ["ebs"]
+  }
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
 locals {
   availability_zones = slice(data.aws_availability_zones.available.names, 0, 2)
   deployment_name    = "${var.project_name}-${random_id.deployment.hex}"
@@ -15,6 +38,18 @@ resource "random_id" "deployment" {
 }
 
 resource "random_password" "database" {
+  length  = 32
+  special = false
+}
+
+resource "random_password" "grafana" {
+  count   = var.enable_app_host ? 1 : 0
+  length  = 32
+  special = false
+}
+
+resource "random_password" "app_database" {
+  count   = var.enable_app_host ? 1 : 0
   length  = 32
   special = false
 }
@@ -260,6 +295,140 @@ resource "aws_iam_role_policy" "application_storage" {
       },
     ]
   })
+}
+
+resource "aws_iam_role_policy_attachment" "application_ssm_core" {
+  count      = var.enable_app_host ? 1 : 0
+  role       = aws_iam_role.application.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_ssm_parameter" "database_url" {
+  count       = var.enable_app_host ? 1 : 0
+  name        = "/${var.project_name}/${random_id.deployment.hex}/database-url"
+  description = "Encrypted connection string for the portfolio app host."
+  type        = "SecureString"
+  value       = "postgresql+psycopg://cloudops_app:${random_password.app_database[0].result}@${aws_db_instance.database.address}:5432/${aws_db_instance.database.db_name}?sslmode=require"
+  tier        = "Standard"
+
+  tags = { Name = "${local.deployment_name}-database-url" }
+}
+
+resource "aws_ssm_parameter" "database_admin_url" {
+  count       = var.enable_app_host ? 1 : 0
+  name        = "/${var.project_name}/${random_id.deployment.hex}/database-admin-url"
+  description = "Encrypted one-time bootstrap connection string for the demo database."
+  type        = "SecureString"
+  value       = "postgresql+psycopg://${var.db_username}:${random_password.database.result}@${aws_db_instance.database.address}:5432/${aws_db_instance.database.db_name}?sslmode=require"
+  tier        = "Standard"
+
+  tags = { Name = "${local.deployment_name}-database-admin-url" }
+}
+
+resource "aws_ssm_parameter" "app_database_password" {
+  count       = var.enable_app_host ? 1 : 0
+  name        = "/${var.project_name}/${random_id.deployment.hex}/app-database-password"
+  description = "Encrypted restricted application database password."
+  type        = "SecureString"
+  value       = random_password.app_database[0].result
+  tier        = "Standard"
+
+  tags = { Name = "${local.deployment_name}-app-database-password" }
+}
+
+resource "aws_ssm_parameter" "grafana_password" {
+  count       = var.enable_app_host ? 1 : 0
+  name        = "/${var.project_name}/${random_id.deployment.hex}/grafana-password"
+  description = "Encrypted Grafana administrator password for the portfolio app host."
+  type        = "SecureString"
+  value       = random_password.grafana[0].result
+  tier        = "Standard"
+
+  tags = { Name = "${local.deployment_name}-grafana-password" }
+}
+
+resource "aws_iam_role_policy" "application_runtime" {
+  count = var.enable_app_host ? 1 : 0
+  name  = "${local.deployment_name}-runtime-secrets"
+  role  = aws_iam_role.application.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ReadApplicationDatabaseUrl"
+        Effect = "Allow"
+        Action = ["ssm:GetParameter"]
+        Resource = [
+          aws_ssm_parameter.database_url[0].arn,
+          aws_ssm_parameter.database_admin_url[0].arn,
+          aws_ssm_parameter.app_database_password[0].arn,
+          aws_ssm_parameter.grafana_password[0].arn,
+        ]
+      },
+      {
+        Sid      = "DecryptOnlyApplicationParameterViaSsm"
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com"
+            "kms:EncryptionContext:PARAMETER_ARN" = [
+              aws_ssm_parameter.database_url[0].arn,
+              aws_ssm_parameter.database_admin_url[0].arn,
+              aws_ssm_parameter.app_database_password[0].arn,
+              aws_ssm_parameter.grafana_password[0].arn,
+            ]
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_instance" "application" {
+  count                       = var.enable_app_host ? 1 : 0
+  ami                         = data.aws_ami.al2023[0].id
+  instance_type               = "t3.small"
+  subnet_id                   = values(aws_subnet.public)[0].id
+  vpc_security_group_ids      = [aws_security_group.application.id]
+  iam_instance_profile        = aws_iam_instance_profile.application.name
+  associate_public_ip_address = true
+  monitoring                  = false
+  user_data = templatefile("${path.module}/user_data.sh.tftpl", {
+    aws_region                  = jsonencode(var.aws_region)
+    app_repo_url                = jsonencode(var.app_repo_url)
+    app_repo_branch             = jsonencode(var.app_repo_branch)
+    database_param              = jsonencode(aws_ssm_parameter.database_url[0].name)
+    database_admin_param        = jsonencode(aws_ssm_parameter.database_admin_url[0].name)
+    app_database_password_param = jsonencode(aws_ssm_parameter.app_database_password[0].name)
+    grafana_param               = jsonencode(aws_ssm_parameter.grafana_password[0].name)
+  })
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
+
+  root_block_device {
+    volume_size           = 20
+    volume_type           = "gp3"
+    encrypted             = true
+    delete_on_termination = true
+  }
+
+  tags = { Name = "${local.deployment_name}-application" }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.application_ssm_core,
+    aws_iam_role_policy.application_runtime,
+    aws_ssm_parameter.database_url,
+    aws_ssm_parameter.database_admin_url,
+    aws_ssm_parameter.app_database_password,
+    aws_ssm_parameter.grafana_password,
+  ]
 }
 
 resource "aws_iam_instance_profile" "application" {
