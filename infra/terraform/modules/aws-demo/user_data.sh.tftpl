@@ -10,7 +10,7 @@ DATABASE_ADMIN_PARAM=${database_admin_param}
 APP_DATABASE_PASSWORD_PARAM=${app_database_password_param}
 GRAFANA_PARAM=${grafana_param}
 
-dnf install -y docker git curl unzip openssl
+dnf install -y docker git unzip openssl
 systemctl enable --now docker
 
 mkdir -p /usr/local/lib/docker/cli-plugins
@@ -18,6 +18,14 @@ curl --fail --location --silent --show-error \
   https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
   --output /usr/local/lib/docker/cli-plugins/docker-compose
 chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+curl --fail --location --silent --show-error \
+  https://github.com/docker/buildx/releases/download/v0.39.1/buildx-v0.39.1.linux-amd64 \
+  --output /tmp/docker-buildx
+echo '903090816da68f8bc1a2ff5346dd163a5adacfce4548d003c75df42cd47a9bf4  /tmp/docker-buildx' \
+  | sha256sum --check --status
+install -m 0755 /tmp/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx
+docker buildx version
 
 curl --fail --location --silent --show-error \
   https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip \

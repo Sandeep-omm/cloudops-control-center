@@ -139,6 +139,15 @@ resource "aws_vpc_security_group_egress_rule" "application_https" {
   cidr_ipv4         = "0.0.0.0/0"
 }
 
+resource "aws_vpc_security_group_egress_rule" "application_database" {
+  security_group_id            = aws_security_group.application.id
+  description                  = "PostgreSQL egress to the RDS security group only."
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+  referenced_security_group_id = aws_security_group.database.id
+}
+
 resource "aws_security_group" "database" {
   name        = "${local.deployment_name}-database"
   description = "PostgreSQL is reachable only from the application security group."
@@ -319,7 +328,7 @@ resource "aws_ssm_parameter" "database_admin_url" {
   name        = "/${var.project_name}/${random_id.deployment.hex}/database-admin-url"
   description = "Encrypted one-time bootstrap connection string for the demo database."
   type        = "SecureString"
-  value       = "postgresql+psycopg://${var.db_username}:${random_password.database.result}@${aws_db_instance.database.address}:5432/${aws_db_instance.database.db_name}?sslmode=require"
+  value       = "postgresql://${var.db_username}:${random_password.database.result}@${aws_db_instance.database.address}:5432/${aws_db_instance.database.db_name}?sslmode=require"
   tier        = "Standard"
 
   tags = { Name = "${local.deployment_name}-database-admin-url" }

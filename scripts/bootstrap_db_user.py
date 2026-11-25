@@ -18,12 +18,14 @@ def main() -> None:
         ).fetchone()
 
         if role_exists:
-            role_statement = "ALTER ROLE {} WITH LOGIN PASSWORD %s"
+            role_statement = "ALTER ROLE {} WITH LOGIN PASSWORD {}"
         else:
-            role_statement = "CREATE ROLE {} WITH LOGIN PASSWORD %s"
+            role_statement = "CREATE ROLE {} WITH LOGIN PASSWORD {}"
         connection.execute(
-            sql.SQL(role_statement).format(sql.Identifier(role_name)),
-            (app_password,),
+            sql.SQL(role_statement).format(
+                sql.Identifier(role_name),
+                sql.Literal(app_password),
+            )
         )
         connection.execute(
             sql.SQL("GRANT CONNECT, CREATE, TEMPORARY ON DATABASE {} TO {}").format(
