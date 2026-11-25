@@ -1,0 +1,34 @@
+[project]
+name = "cloudops-control-center"
+version = "0.1.0"
+description = "A local-first data job platform with observability"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "uvicorn[standard]>=0.30,<1.0",
+  "sqlalchemy>=2.0,<3.0",
+  "alembic>=1.14,<2.0",
+  "psycopg[binary]>=3.2,<4.0",
+  "python-multipart>=0.0.9,<1.0",
+  "prometheus-client>=0.21,<1.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*", "worker*"]
+
+[project.optional-dependencies]
+dev = ["httpx>=0.27,<1.0", "pytest>=8.0,<9.0", "ruff>=0.8,<1.0"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "worker"]

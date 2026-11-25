@@ -1,0 +1,5 @@
+# This file is intentionally disabled. Copy to terraform.tfvars only for a reviewed plan.
+enable_aws_resources = false
+aws_region            = "us-east-1"
+project_name          = "cloudops-demo"
+db_multi_az           = false

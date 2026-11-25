@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+*.py[cod]
+tests/.data
+tests/test-cloudops.db
+data
