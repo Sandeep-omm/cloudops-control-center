@@ -49,7 +49,10 @@ jobs:
           DATABASE_URL: postgresql+psycopg://cloudops_app:ci-placeholder@localhost:5432/cloudops
           GF_SECURITY_ADMIN_PASSWORD: ci-placeholder
         run: |
-          printf 'DATABASE_URL=%s\nGF_SECURITY_ADMIN_PASSWORD=%s\n' "$DATABASE_URL" "$GF_SECURITY_ADMIN_PASSWORD" > .env
+          printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env.app
+          printf 'DATABASE_ADMIN_URL=%s\nAPP_DB_PASSWORD=ci-placeholder\n' \
+            'postgresql://cloudops_admin:ci-placeholder@localhost:5432/cloudops?sslmode=require' > .env.bootstrap
+          printf 'GF_SECURITY_ADMIN_PASSWORD=%s\n' "$GF_SECURITY_ADMIN_PASSWORD" > .env
           docker compose --file compose.aws.yaml config --quiet
 
   terraform:
