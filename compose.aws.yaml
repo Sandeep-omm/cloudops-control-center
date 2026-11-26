@@ -20,6 +20,7 @@ services:
     env_file: .env.app
     environment:
       DATA_DIR: /data
+      OBJECT_STORAGE_BACKEND: s3
       MAX_UPLOAD_BYTES: "5242880"
       MAX_ROWS: "100000"
     volumes:
@@ -42,6 +43,7 @@ services:
     env_file: .env.app
     environment:
       DATA_DIR: /data
+      OBJECT_STORAGE_BACKEND: s3
       MAX_ROWS: "100000"
     volumes:
       - job_data:/data

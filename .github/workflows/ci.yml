@@ -41,7 +41,7 @@ jobs:
       - name: Lint
         run: ruff check app worker migrations tests scripts
       - name: Compile Python modules
-        run: python -m compileall -q app worker migrations tests
+        run: python -m compileall -q app worker migrations tests scripts
       - name: Build container image
         run: docker build -t cloudops-control-center:${{ github.sha }} .
       - name: Validate AWS deployment Compose file
@@ -50,10 +50,16 @@ jobs:
           GF_SECURITY_ADMIN_PASSWORD: ci-placeholder
         run: |
           printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > .env.app
+          printf 'OBJECT_STORAGE_BACKEND=s3\nS3_BUCKET=cloudops-ci-placeholder\nAWS_REGION=ap-southeast-2\n' >> .env.app
           printf 'DATABASE_ADMIN_URL=%s\nAPP_DB_PASSWORD=ci-placeholder\n' \
             'postgresql://cloudops_admin:ci-placeholder@localhost:5432/cloudops?sslmode=require' > .env.bootstrap
           printf 'GF_SECURITY_ADMIN_PASSWORD=%s\n' "$GF_SECURITY_ADMIN_PASSWORD" > .env
           docker compose --file compose.aws.yaml config --quiet
+      - name: Render local Kubernetes manifests
+        run: |
+          for directory in 00-database 01-migrate 02-app 03-monitoring; do
+            kubectl kustomize "deploy/kubernetes/$directory" > /dev/null
+          done
 
   terraform:
     runs-on: ubuntu-latest

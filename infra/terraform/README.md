@@ -42,10 +42,35 @@ After applying, wait for the instance to appear as **Online** in Systems Manager
 
 ```powershell
 $instanceId = terraform output -raw app_instance_id
-aws ssm start-session --target $instanceId --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["8080"],"localPortNumber":["8080"]}' --profile cloudops-demo --region ap-southeast-2
+aws ssm start-session --target $instanceId --document-name AWS-StartPortForwardingSession --parameters portNumber="8080",localPortNumber="8080" --profile cloudops-demo --region ap-southeast-2
 ```
 
-While the session stays open, visit `http://localhost:8080`. Grafana can be forwarded in another PowerShell window by changing both ports in the command to `3001`. Retrieve its generated password with `aws ssm get-parameter --name (terraform output -raw grafana_password_parameter) --with-decryption --query Parameter.Value --output text --profile cloudops-demo --region ap-southeast-2`; keep that value private.
+While the session stays open, visit `http://localhost:8080`. Forward Grafana in a second PowerShell window using remote port `3001` and local port `3301` to avoid local port conflicts:
+
+```powershell
+aws ssm start-session --target $instanceId --document-name AWS-StartPortForwardingSession --parameters portNumber="3001",localPortNumber="3301" --profile cloudops-demo --region ap-southeast-2
+```
+
+Visit `http://localhost:3301`. Retrieve Grafana's generated password with `aws ssm get-parameter --name (terraform output -raw grafana_password_parameter) --with-decryption --query Parameter.Value --output text --profile cloudops-demo --region ap-southeast-2`; keep that value private.
+
+### Update an existing EC2 demo host
+
+The bootstrap script runs only when the host is initialized. After pushing the updated project to the configured branch, connect to the instance through an SSM shell and pull the code:
+
+```bash
+sudo git -C /opt/cloudops-control-center pull --ff-only origin master
+```
+
+Get the bucket name in the local Terraform directory with `terraform output -raw uploads_bucket`. Copy that non-secret bucket name into the SSM shell, then add the S3 settings and rebuild the application services:
+
+```bash
+sudo sed -i '/^OBJECT_STORAGE_BACKEND=/d;/^S3_BUCKET=/d;/^AWS_REGION=/d' /opt/cloudops-control-center/.env.app
+sudo sh -c 'echo OBJECT_STORAGE_BACKEND=s3 >> /opt/cloudops-control-center/.env.app && echo S3_BUCKET=YOUR_BUCKET_NAME >> /opt/cloudops-control-center/.env.app && echo AWS_REGION=ap-southeast-2 >> /opt/cloudops-control-center/.env.app'
+sudo chmod 0600 /opt/cloudops-control-center/.env.app
+sudo docker compose --project-directory /opt/cloudops-control-center --file /opt/cloudops-control-center/compose.aws.yaml up --detach --build api worker
+```
+
+Replace `YOUR_BUCKET_NAME` with the Terraform output. The EC2 role already has the scoped permissions for the bucket’s `incoming/` and `results/` prefixes. After the redeploy, submit a small CSV through the API and confirm its result is available from `/api/v1/jobs/{job_id}/result`.
 
 This is a single-node portfolio deployment, not a production high-availability service. The app has no user authentication, so keep access through Session Manager and do not add public inbound rules.
 

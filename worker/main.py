@@ -1,6 +1,7 @@
 import csv
 import json
 import logging
+import tempfile
 import time
 from collections import Counter
 from decimal import Decimal, InvalidOperation
@@ -8,11 +9,11 @@ from pathlib import Path
 
 from prometheus_client import Counter as PromCounter
 from prometheus_client import Gauge, Histogram, start_http_server
-from sqlalchemy import select
 
 from app.config import DATA_DIR, MAX_ROWS
 from app.db import SessionLocal
 from app.models import Job, utcnow
+from app.storage import get_storage
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger("cloudops.worker")
@@ -23,12 +24,12 @@ WORKER_UP = Gauge("worker_up", "Whether the job worker is running")
 
 def claim_job() -> Job | None:
     with SessionLocal() as session:
-        job = session.scalar(
-            select(Job)
-            .where(Job.status == "queued")
+        job = (
+            session.query(Job)
+            .filter(Job.status == "queued")
             .order_by(Job.created_at)
             .with_for_update(skip_locked=True)
-            .limit(1)
+            .first()
         )
         if job is None:
             return None
@@ -93,8 +94,24 @@ def run_once() -> bool:
         return False
     started = time.perf_counter()
     outcome = "failed"
+    storage = get_storage()
+    temporary_path = None
     try:
-        processed, rejected, summary = process_csv(Path(job.input_path))
+        contents = storage.get_input(job.input_path)
+        with tempfile.NamedTemporaryFile(
+            mode="wb", suffix=".csv", dir=DATA_DIR, delete=False
+        ) as temporary_file:
+            temporary_file.write(contents)
+            temporary_path = Path(temporary_file.name)
+        processed, rejected, summary = process_csv(temporary_path)
+        result = {
+            "job_id": job.id,
+            "filename": job.filename,
+            "processed_rows": processed,
+            "rejected_rows": rejected,
+            "summary": summary,
+        }
+        storage.put_result(job.id, result)
         with SessionLocal() as session:
             current = session.get(Job, job.id)
             if current:
@@ -128,7 +145,15 @@ def run_once() -> bool:
     finally:
         JOBS.labels(outcome).inc()
         JOB_DURATION.observe(time.perf_counter() - started)
-        Path(job.input_path).unlink(missing_ok=True)
+        if temporary_path is not None:
+            temporary_path.unlink(missing_ok=True)
+        try:
+            storage.delete_input(job.input_path)
+        except Exception:
+            logger.exception(
+                "%s",
+                json.dumps({"event": "job_input_cleanup_failed", "job_id": job.id}),
+            )
     return True
 
 

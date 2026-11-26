@@ -30,6 +30,9 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cloudops_app:change-me-local-only@db:5432/cloudops}
       DATA_DIR: /data
+      OBJECT_STORAGE_BACKEND: ${OBJECT_STORAGE_BACKEND:-local}
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-5242880}
       MAX_ROWS: ${MAX_ROWS:-100000}
     volumes:
@@ -52,6 +55,9 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://cloudops_app:change-me-local-only@db:5432/cloudops}
       DATA_DIR: /data
+      OBJECT_STORAGE_BACKEND: ${OBJECT_STORAGE_BACKEND:-local}
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-}
       MAX_ROWS: ${MAX_ROWS:-100000}
     volumes:
       - job_data:/data
@@ -65,7 +71,7 @@ services:
     build:
       context: .
       target: test
-    command: ["sh", "-c", "ruff check app worker migrations tests && pytest -q"]
+    command: ["sh", "-c", "ruff check app worker migrations tests scripts && pytest -q"]
     environment:
       CLOUDOPS_TEST_DATABASE_URL: sqlite:////tmp/cloudops-test.db
       CLOUDOPS_TEST_DATA_DIR: /tmp/cloudops-test-data

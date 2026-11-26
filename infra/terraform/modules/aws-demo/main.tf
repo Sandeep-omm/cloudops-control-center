@@ -413,6 +413,7 @@ resource "aws_instance" "application" {
     database_admin_param        = jsonencode(aws_ssm_parameter.database_admin_url[0].name)
     app_database_password_param = jsonencode(aws_ssm_parameter.app_database_password[0].name)
     grafana_param               = jsonencode(aws_ssm_parameter.grafana_password[0].name)
+    uploads_bucket              = jsonencode(aws_s3_bucket.uploads.bucket)
   })
 
   metadata_options {

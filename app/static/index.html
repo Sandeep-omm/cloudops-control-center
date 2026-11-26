@@ -53,7 +53,12 @@
     async function showDetails(id) {
       const response = await fetch('/api/v1/jobs/' + encodeURIComponent(id));
       const job = await response.json();
-      $('#detail-content').innerHTML = `<p><b>Status:</b> <span class="status ${esc(job.status)}">${esc(job.status)}</span></p><p><b>File:</b> ${esc(job.filename)}</p><p><b>Started:</b> ${fmt(job.started_at)}<br><b>Finished:</b> ${fmt(job.completed_at)}</p><p><b>Processed:</b> ${job.processed_rows} &nbsp; <b>Rejected:</b> ${job.rejected_rows}</p>${job.error ? `<p class="notice error">${esc(job.error)}</p>` : ''}<h3>Result summary</h3><pre>${esc(JSON.stringify(job.summary, null, 2) ?? 'Waiting for worker…')}</pre>`;
+      let result = job.summary;
+      if (job.status === 'succeeded') {
+        const storedResult = await fetch('/api/v1/jobs/' + encodeURIComponent(id) + '/result');
+        if (storedResult.ok) result = await storedResult.json();
+      }
+      $('#detail-content').innerHTML = `<p><b>Status:</b> <span class="status ${esc(job.status)}">${esc(job.status)}</span></p><p><b>File:</b> ${esc(job.filename)}</p><p><b>Started:</b> ${fmt(job.started_at)}<br><b>Finished:</b> ${fmt(job.completed_at)}</p><p><b>Processed:</b> ${job.processed_rows} &nbsp; <b>Rejected:</b> ${job.rejected_rows}</p>${job.error ? `<p class="notice error">${esc(job.error)}</p>` : ''}<h3>Result summary</h3><pre>${esc(JSON.stringify(result, null, 2) ?? 'Waiting for worker…')}</pre>`;
       $('#details').showModal();
     }
     async function submitFile(file) {

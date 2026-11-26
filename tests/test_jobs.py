@@ -32,6 +32,9 @@ def test_sample_job_completes_end_to_end(client):
     assert job["rejected_rows"] == 1
     assert job["summary"]["total_amount"] == "469.74"
     assert job["summary"]["categories"] == {"hardware": 2, "software": 1, "services": 1}
+    result = client.get(f"/api/v1/jobs/{created['id']}/result")
+    assert result.status_code == 200
+    assert result.json()["summary"] == job["summary"]
     assert client.get("/api/v1/jobs/summary").json() == {
         "queued": 0,
         "running": 0,
@@ -55,6 +58,27 @@ def test_upload_rejects_empty_file(client):
 def test_job_lookup_returns_404_for_unknown_id(client):
     response = client.get("/api/v1/jobs/unknown-job")
     assert response.status_code == 404
+
+
+def test_result_is_unavailable_until_job_succeeds(client):
+    submitted = client.post(
+        "/api/v1/jobs",
+        files={"file": ("orders.csv", SAMPLE_CSV, "text/csv")},
+    )
+    response = client.get(f"/api/v1/jobs/{submitted.json()['id']}/result")
+    assert response.status_code == 409
+
+
+def test_request_metrics_use_route_template_not_job_id(client):
+    from app.metrics import metrics_response
+
+    assert client.get("/api/v1/jobs/first-id").status_code == 404
+    assert client.get("/api/v1/jobs/second-id").status_code == 404
+
+    metrics = metrics_response().body.decode()
+    assert 'path="/api/v1/jobs/{job_id}"' in metrics
+    assert 'path="/api/v1/jobs/first-id"' not in metrics
+    assert 'path="/api/v1/jobs/second-id"' not in metrics
 
 
 def test_processor_requires_a_header(tmp_path):

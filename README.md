@@ -37,7 +37,7 @@ This keeps the database and Grafana volumes. To reset the demo database and moni
 | Prometheus | Scrapes API and worker metrics | 9091 |
 | Grafana | Provisioned operations dashboard | 3001 |
 
-The optional AWS Compose stack is in `compose.aws.yaml`. It connects to the private RDS instance, stores the database URL as an SSM Parameter Store `SecureString`, and binds the app and monitoring ports to EC2 loopback. It does not expose inbound ports to the internet.
+The optional AWS Compose stack is in `compose.aws.yaml`. Terraform provisions a private RDS database, a versioned private S3 bucket, and an EC2 instance profile with prefix-scoped object access. AWS uploads and JSON results are stored under the `incoming/` and `results/` S3 prefixes; the worker downloads each input for processing and removes it afterward. The EC2 host runs the app and monitoring containers with ports bound to loopback; access them through Session Manager port forwarding. It does not expose inbound ports to the internet.
 
 The worker claims jobs with PostgreSQL row locks (`SKIP LOCKED`), so two workers can safely share the queue. Uploads are size-limited and named with generated IDs; original user paths are never used for storage paths. The API and worker run as a non-root container user.
 
@@ -49,7 +49,7 @@ docker compose logs -f api worker
 docker compose config
 ```
 
-Health endpoints: `/health/live` and `/health/ready`. Job endpoints start at `/api/v1/jobs`. Prometheus metrics are at `/metrics` on the API and worker.
+Health endpoints: `/health/live` and `/health/ready`. Job endpoints start at `/api/v1/jobs`; completed JSON results are available at `/api/v1/jobs/{job_id}/result`. Prometheus metrics are at `/metrics` on the API and worker.
 
 ## Database migrations and tests
 
@@ -92,7 +92,10 @@ docs/                Architecture, security, and operations notes
 - [x] CI static checks and image build
 - [x] Automated test suite and database migrations
 - [x] Terraform AWS VPC, private RDS, S3, IAM, and optional SSM-managed EC2 app host
-- [ ] Optional Kubernetes manifests and local cluster walkthrough
+- [x] Route AWS job uploads and results through the provisioned S3 bucket
+- [x] Optional Kubernetes manifests and local cluster walkthrough
 - [ ] Screenshots and short project demo recording
 
-The AWS and Kubernetes items are documentation and infrastructure extensions; they are not needed to run the local product. Free-tier eligibility and pricing vary, so check current provider pricing before creating cloud resources.
+The local Kubernetes deployment walkthrough is in [docs/kubernetes.md](docs/kubernetes.md). It deploys the API, worker, PostgreSQL, Prometheus, and Grafana to a local cluster. S3 is used by the AWS Compose deployment; Kubernetes runs with local persistent storage by default.
+
+The AWS and Kubernetes deployments are optional extensions; the local Compose stack needs no cloud account. Free-tier eligibility and pricing vary, so check current provider pricing before creating cloud resources.

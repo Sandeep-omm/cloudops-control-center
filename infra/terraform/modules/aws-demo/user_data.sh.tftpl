@@ -9,6 +9,7 @@ DATABASE_PARAM=${database_param}
 DATABASE_ADMIN_PARAM=${database_admin_param}
 APP_DATABASE_PASSWORD_PARAM=${app_database_password_param}
 GRAFANA_PARAM=${grafana_param}
+UPLOADS_BUCKET=${uploads_bucket}
 
 dnf install -y docker git unzip openssl
 systemctl enable --now docker
@@ -58,7 +59,8 @@ DATABASE_URL="$(get_secure_parameter "$DATABASE_PARAM")"
 DATABASE_ADMIN_URL="$(get_secure_parameter "$DATABASE_ADMIN_PARAM")"
 APP_DATABASE_PASSWORD="$(get_secure_parameter "$APP_DATABASE_PASSWORD_PARAM")"
 GRAFANA_PASSWORD="$(get_secure_parameter "$GRAFANA_PARAM")"
-printf 'DATABASE_URL=%s\n' "$DATABASE_URL" > /opt/cloudops-control-center/.env.app
+printf 'DATABASE_URL=%s\nOBJECT_STORAGE_BACKEND=s3\nS3_BUCKET=%s\nAWS_REGION=%s\n' \
+  "$DATABASE_URL" "$UPLOADS_BUCKET" "$AWS_REGION" > /opt/cloudops-control-center/.env.app
 printf 'DATABASE_ADMIN_URL=%s\nAPP_DB_PASSWORD=%s\n' \
   "$DATABASE_ADMIN_URL" "$APP_DATABASE_PASSWORD" > /opt/cloudops-control-center/.env.bootstrap
 printf 'GF_SECURITY_ADMIN_PASSWORD=%s\n' "$GRAFANA_PASSWORD" > /opt/cloudops-control-center/.env
