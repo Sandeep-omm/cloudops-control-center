@@ -7,3 +7,4 @@
 - App containers run as a non-root user. PostgreSQL is not published to the host.
 - Do not upload personal, customer, or otherwise sensitive data.
 - The AWS demo keeps the API and monitoring ports on EC2 loopback and uses Session Manager tunnels; it has no application authentication. Production work would require authentication/authorization, managed secret rotation, TLS, stricter network policy, migration management, backup/restore, and cloud-specific IAM review.
+- The AWS API and worker containers use the EC2 instance profile for scoped S3 access. IMDSv2 remains required; its response hop limit is `2` so bridge-network containers can receive the token response. Only run trusted containers on this instance, and keep the instance role and security group restricted.
