@@ -55,11 +55,11 @@ Open three PowerShell windows and keep each port-forward running:
 
 ```powershell
 kubectl port-forward --namespace cloudops service/api 8080:8000
-kubectl port-forward --namespace cloudops service/grafana 3001:3000
-kubectl port-forward --namespace cloudops service/prometheus 9091:9090
+kubectl port-forward --namespace cloudops service/grafana 13001:3000
+kubectl port-forward --namespace cloudops service/prometheus 19091:9090
 ```
 
-Visit `http://localhost:8080`, `http://localhost:3001`, and `http://localhost:9091`. The Grafana username is `admin`; use the local-only password created in the Secret command. Submit the sample job and confirm it completes and appears in the metrics dashboard.
+If local Compose or another service already uses port `8080`, use `18080:8000` for the API instead. Visit the corresponding local URLs, such as `http://localhost:18080`, `http://localhost:13001`, and `http://localhost:19091`. The Grafana username is `admin`; use the local-only password created in the Secret command. Submit the sample job and confirm it completes and appears in the metrics dashboard.
 
 ## Troubleshooting and cleanup
 

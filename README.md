@@ -2,6 +2,41 @@
 
 A data processing platform that demonstrates an API, PostgreSQL-backed worker queue, containerized services, CI, and application monitoring. Run the full stack locally with Docker Compose, or optionally deploy a single EC2 demo host inside the Terraform-managed AWS VPC. The AWS database remains private and the demo host is accessed through Systems Manager port forwarding.
 
+## Project highlights
+
+- Upload and process CSV jobs through a FastAPI web interface and REST API.
+- Track durable job state in PostgreSQL; a separate worker claims jobs safely using `FOR UPDATE SKIP LOCKED`.
+- Store inputs and JSON results locally, or use S3 in the AWS deployment.
+- Observe API and worker metrics with Prometheus and Grafana.
+- Validate changes with automated tests, linting, migrations, container builds, and GitHub Actions.
+- Demonstrate the same core services with Docker Compose, local Kubernetes, and optional Terraform-managed AWS infrastructure.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    User[Browser or API client] --> API[FastAPI]
+    API -->|Create job and read status| DB[(PostgreSQL)]
+    Worker[Background worker] -->|Claim queued jobs| DB
+    API -->|Write uploaded CSV| Store[(Local volume or S3)]
+    Worker -->|Read CSV and write result| Store
+    Prometheus[Prometheus] -->|Scrape metrics| API
+    Prometheus -->|Scrape metrics| Worker
+    Grafana[Grafana dashboard] --> Prometheus
+```
+
+For local development, the services run with Docker Compose or the optional Kubernetes manifests. The AWS example places EC2 and RDS in a Terraform-managed VPC, keeps RDS private, uses an EC2 IAM role for prefix-scoped S3 access, and reaches the app through Systems Manager port forwarding.
+
+## Portfolio walkthrough
+
+1. Start the local stack and use **Run sample data** to submit a job.
+2. Confirm the job succeeds and inspect its JSON result through the API.
+3. Open Grafana and view request rate and latency metrics; check Prometheus targets if a service is missing.
+4. Follow [the Kubernetes walkthrough](docs/kubernetes.md) to run the API, worker, PostgreSQL, Prometheus, and Grafana on a local cluster.
+5. Review [the AWS architecture and operations notes](docs/architecture.md) and Terraform modules for the optional cloud deployment.
+
+The project is a portfolio demonstration rather than a public production service. It has no application authentication, and its worker does not yet implement automatic retry or stale-job recovery; see [security notes](docs/security.md) and [operations notes](docs/operations.md).
+
 ## Start locally
 
 Prerequisites: Docker Desktop with its Linux container engine running, and Docker Compose v2 or later.
@@ -94,8 +129,11 @@ docs/                Architecture, security, and operations notes
 - [x] Terraform AWS VPC, private RDS, S3, IAM, and optional SSM-managed EC2 app host
 - [x] Route AWS job uploads and results through the provisioned S3 bucket
 - [x] Optional Kubernetes manifests and local cluster walkthrough
-- [ ] Screenshots and short project demo recording
+- [ ] Capture final screenshots and record a short project demo
+- [ ] Verify one end-to-end AWS S3 upload and processing run
 
 The local Kubernetes deployment walkthrough is in [docs/kubernetes.md](docs/kubernetes.md). It deploys the API, worker, PostgreSQL, Prometheus, and Grafana to a local cluster. S3 is used by the AWS Compose deployment; Kubernetes runs with local persistent storage by default.
 
 The AWS and Kubernetes deployments are optional extensions; the local Compose stack needs no cloud account. Free-tier eligibility and pricing vary, so check current provider pricing before creating cloud resources.
+
+See [the LinkedIn post draft](docs/linkedin-post.md) for a concise project summary that can be adapted when sharing the demo.
