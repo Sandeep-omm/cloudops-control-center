@@ -129,7 +129,7 @@ docs/                Architecture, security, and operations notes
 - [x] Terraform AWS VPC, private RDS, S3, IAM, and optional SSM-managed EC2 app host
 - [x] Route AWS job uploads and results through the provisioned S3 bucket
 - [x] Optional Kubernetes manifests and local cluster walkthrough
-- [ ] Capture final screenshots and record a short project demo
+- [ ] Capture final record a short project demo
 - [ ] Verify one end-to-end AWS S3 upload and processing run
 
 The local Kubernetes deployment walkthrough is in [docs/kubernetes.md](docs/kubernetes.md). It deploys the API, worker, PostgreSQL, Prometheus, and Grafana to a local cluster. S3 is used by the AWS Compose deployment; Kubernetes runs with local persistent storage by default.
